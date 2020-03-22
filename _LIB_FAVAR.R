@@ -12,10 +12,12 @@ source("_LIB_IC_Calc.R");
 
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # factor and factor loading estimation based on given Theta
+# effective conduct factor analysis given the specified rank
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 factor_extract = function(Theta,rk,IR)
 {
     #{param,matrix} Theta: matrix based on which factors and loadings are extracted
+    #{param,double} rk: the number of factors/effective rank of Theta
     #{param,string} IR: identification restriction type for extracting factors
     #   'PC1': factors are assumed orthogonal, Lambda'Lamdba diagonal;
     #   'PC2': factors are assumed orthogonal, Lambda is lower triangular;
@@ -26,14 +28,16 @@ factor_extract = function(Theta,rk,IR)
     #   est_f: estimated factors
     #   est_Lambda: estimated loadings
     Theta_SVD = svd(Theta);
+    n = nrow(Theta);
+    
     if ( IR == 'PC3' )
     {
-        est_f = Theta[,1:r];
+        est_f = Theta[,1:rk];
         if (rk == 1)
         {
             est_f = matrix(est_f,ncol=1);
             est_Lambda0 = matrix(Theta_SVD$v[,1],ncol=1) * Theta_SVD$d[1]/sqrt(n);
-            est_Lambda0 = est_Lambda0 / est_Lambda0[1,1];
+            est_Lambda = est_Lambda0 / est_Lambda0[1,1];
         }
         else{
             est_Lambda0 = Theta_SVD$v[,1:rk] %*% diag(Theta_SVD$d[1:rk])/sqrt(n);
@@ -60,7 +64,7 @@ factor_extract = function(Theta,rk,IR)
             est_f0 = sqrt(n) * Theta_SVD$u[,rk];
             est_Lambda0 = matrix(Theta_SVD$v[,1:rk]) * Theta_SVD$d[1:rk]/sqrt(n);
             Q = qr.Q(qr(est_Lambda0[1:rk,1:rk]));
-            est_f = est_f %*% Q;
+            est_f = est_f0 %*% Q;
             est_Lambda = est_Lambda0 %*% Q;
         }
         else
@@ -77,6 +81,8 @@ factor_extract = function(Theta,rk,IR)
 
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # Estimate the information eqn based on given r and lambda
+# Information equation is given in the form of:
+# Y_t = BX_t + Lambda F_t + e_t
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 info_est = function(Y,X,rk,lambda,IR='PC3',parallel=FALSE,verbose=FALSE)
 {
@@ -97,6 +103,9 @@ info_est = function(Y,X,rk,lambda,IR='PC3',parallel=FALSE,verbose=FALSE)
     #   est_B: estimated coefficient matrix for the observed covariates
     #   est_f: estimated factor subject to IR
     #   est_Lambda: estimated factor loadings subject to IR
+    
+    Y = as.matrix(Y);
+    X = as.matrix(X);
     
     n = nrow(X);
     dimX = ncol(X);
@@ -131,10 +140,10 @@ info_est = function(Y,X,rk,lambda,IR='PC3',parallel=FALSE,verbose=FALSE)
         # update B (dimY * dimX) by Lasso
         if (parallel)
         {
-            Brow_list = foreach(j = 1:dimY,.packaves=pkgs) %dopar %
+            Brow_list = foreach(j = 1:dimY,.packages=pkgs) %dopar%
             {
                 temp = glmnet(x=X,y=(Y-Theta)[,j],lambda=lambda,intercept=FALSE);
-                Bj = as.numeric(temp$beta);
+                as.numeric(temp$beta); ## output for the parallel step
             }
             for (j in 1:dimY)
                 B[j,] = Brow_list[[j]];
@@ -180,7 +189,8 @@ info_est = function(Y,X,rk,lambda,IR='PC3',parallel=FALSE,verbose=FALSE)
 }
 
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# Automatic estimate the information eqn over a lattice of lambda nand
+# Automatic estimate the information eqn over a lattice of lambda and rank
+# optimal combination of (lambd and rk) is selected based on the panel information criterion
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 info_auto = function(Y,X,rk_seq,lambda_seq,IR='PC3',parallel=FALSE,verbose=FALSE)
 {
@@ -204,7 +214,6 @@ info_auto = function(Y,X,rk_seq,lambda_seq,IR='PC3',parallel=FALSE,verbose=FALSE
     
     n = nrow(X);
     dimX = ncol(X);
-    dimY = ncol(Y);
     
     if (is.null(rk_seq))
     {
@@ -214,10 +223,9 @@ info_auto = function(Y,X,rk_seq,lambda_seq,IR='PC3',parallel=FALSE,verbose=FALSE
         
     if (is.null(lambda_seq))
     {
-        lambda_seq = seq(from=0.1,to=1,by=0.1)*sqrt(log(dimX)/n);
-        cat(sprintf("lambda_seq is NULL, set to seq(from=0.1,to=10,by=0.1)*sqrt(logp/n).\n"));
+        lambda_seq = seq(from=0.25,to=3,by=0.25)*sqrt(log(dimX)/n);
+        cat(sprintf("lambda_seq is NULL, set to seq(from=0.25,to=3,by=0.25)*sqrt(log p/n).\n"));
     }
-    
     
     PIC_mtx = array(0,c(length(rk_seq),length(lambda_seq)));
     for (j1 in 1:length(rk_seq))
@@ -247,14 +255,14 @@ info_auto = function(Y,X,rk_seq,lambda_seq,IR='PC3',parallel=FALSE,verbose=FALSE
     out = info_est(Y,X,rk=rk_active,lambda=lambda_active,IR=IR,parallel=parallel,verbose=verbose);
     
     return(list(out=out,idx=idx,rk_active=rk_active,lambda_active=lambda_active));
- 
 }
     
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # Estimate the FAVAR model based on given rank/penalty parameters
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-favar_est = function(Y,X,rk,lambda_Gamma,IR='PC3',lambda_A,d=1,alpha=1,parallel=TRUE,verbose=FALSE)
+favar_est = function(Y,X,rk,lambda_Gamma,IR='PC3',lambda_A,penalty_fac,d=1,alpha=1,parallel=TRUE,verbose=FALSE)
 {
+    ## params for the information eqn
     #{param,matrix} Y: observed reseponse matrix data
     #{param,matrix} X: observed covariate matrix data
     #{param,double} rk: rank constraint for the optimization problem
@@ -264,8 +272,11 @@ favar_est = function(Y,X,rk,lambda_Gamma,IR='PC3',lambda_A,d=1,alpha=1,parallel=
     #   'PC2': factors are assumed orthogonal, Lambda is lower triangular;
     #   'PC3': factors are unrestricted
     #   see also Bai & NG, 2013, J of Econometrics
+    
+    ## params for the VAR eqn
     #{param,double} lambda_A: penalty parameter for transition matrix in the VAR equation estimation
-    #{param,d}: lag of the VAR process to estimate
+    #{param,double} penalty_fac: penalty factor for transition matrix in the VAR equation estimation
+    #{param,double} d: lag of the VAR process to estimate
     #{param,double} alpha: alpha in glmnet. alpha = 1: lasso; alpha = 0: ridge
     
     #{param,boolean} parallel: whether run parallel when doing Lasso regressions;
@@ -277,28 +288,26 @@ favar_est = function(Y,X,rk,lambda_Gamma,IR='PC3',lambda_A,d=1,alpha=1,parallel=
     #   est_Lambda: estimated factor loadings subject to IR
     #   est_A: a list with each component corresponding to the transition matrix estimate
     
-    n = nrow(X);
-    dimX = ncol(X);
-    dimY = ncol(Y);
-    
+    ## estimating the information equation
     out_info = info_est(Y=Y,X=X,rk=rk,lambda=lambda_Gamma,IR=IR,parallel=parallel,verbose=verbose);
     
-    # joint process (F_t,X_t)
+    # obtain the joint process (F_t,X_t)
     FX = cbind(out_info$est_f,X);
-    # estimate the joint VAR process
-    out_VAR = regularized_VAR_est (Y=NULL,X=FX,d=d,lambda=lambda_A,penalty.factor=NULL,alpha=alpha,refit=FALSE,parallel=parallel);
+    # regularized estimation of the joint VAR(d) process
+    out_VAR = regularized_VAR_est (Y=NULL,X=FX,d=d,lambda=lambda_A,penalty.factor=penalty_fac,alpha=alpha,refit=FALSE,parallel=parallel);
     
-    return(list(est_Gamma = info_out$est_B,
-                est_Lambda = info_out$est_Lambda,
-                est_f = info_out$est_f,
-                est_A = out_VAR$Alist)
+    return(list(est_Gamma = out_info$est_B,
+                est_Lambda = out_info$est_Lambda,
+                est_f = out_info$est_f,
+                est_A = out_VAR$Alist,
+                est_Theta = out_info$est_Theta)
         )
 }
 
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # Automatic sparse FAVAR estimation
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-favar_auto = function(Y,X,rk_seq,lambda_Gamma_seq,IR='PC3',lambda_A_seq,d=1,alpha=1,parallel=FALSE,verbose=FALSE)
+favar_auto = function(Y,X,rk_seq,lambda_Gamma_seq,IR='PC3',lambda_A_seq,penalty_fac=NULL,d=1,alpha=1,parallel=FALSE,verbose=FALSE)
 {
     #{param,matrix} Y: observed reseponse matrix data
     #{param,matrix} X: observed covariate matrix data
@@ -312,6 +321,7 @@ favar_auto = function(Y,X,rk_seq,lambda_Gamma_seq,IR='PC3',lambda_A_seq,d=1,alph
     #   see also Bai & NG, 2013, J of Econometrics
     
     #{param,double} lambda_A_seq: sequence of penalty parameter for transition matrix in the VAR equation estimation
+    #{param,double} penalty_fac: penalty factor for transition matrix in the VAR equation estimation
     #{param,d}: lag of the VAR process to estimate
     #{param,double} alpha: alpha in glmnet. alpha = 1: lasso; alpha = 0: ridge
     
@@ -324,26 +334,24 @@ favar_auto = function(Y,X,rk_seq,lambda_Gamma_seq,IR='PC3',lambda_A_seq,d=1,alph
     #   est_Lambda: estimated factor loadings subject to IR
     #   est_A: a list with each component corresponding to the transition matrix estimate
     
-    n = nrow(X);
-    dimX = ncol(X);
-    dimY = ncol(Y);
+    Y = as.matrix(Y);
+    X = as.matrix(X);
     
     cat("==== Stage I: estimating calibration eqn with auto-selected rank and penalty params ====\n");
     
-    out_autoinfo = info_auto function(Y=Y,X=Y,rk_seq=rk_seq,lambda_seq=lambda_Gamma_seq,IR=IR,parallel=parallel,verbose=FALSE);
-    
+    out_autoinfo = info_auto(Y=Y,X=X,rk_seq=rk_seq,lambda_seq=lambda_Gamma_seq,IR=IR,parallel=parallel,verbose=verbose);
     out_info = out_autoinfo$out;
     
+    cat("==== Stage II: estimating VAR eqn with auto-selected penalty params ====\n");
     # joint process (F_t,X_t)
     FX = cbind(out_info$est_f,X);
-    
-    cat("==== Stage II: estimating VAR eqn with auto-selected penalty params ====\n");
-    
     # auto estimate the joint VAR process
-    out_autoVAR = regularized_VAR_auto = function(Y=NULL,X=FX,d=d,alpha=1,lambda_seq=lambda_A_seq,selection="bic",refit=FALSE,parallel=TRUE);
+    out_autoVAR = regularized_VAR_auto(Y=NULL,X=FX,d=d,alpha=1,lambda_seq=lambda_A_seq,penalty.factor=penalty_fac,selection="bic",refit=FALSE,parallel=parallel);
     
-    return(list(est_Gamma = info_out$est_B,
-                est_Lambda = info_out$est_Lambda,
-                est_f = info_out$est_f,
-                est_A = out_autoVAR$Alist))
-}
+    cat("=== Done ===\n");
+    return(list(est_Gamma = out_info$est_B,
+                est_Lambda = out_info$est_Lambda,
+                est_f = out_info$est_f,
+                est_A = out_autoVAR$out$Alist,
+                est_Theta = out_info$est_Theta))
+};

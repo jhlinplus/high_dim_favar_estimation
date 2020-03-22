@@ -44,7 +44,7 @@ regularized_VAR_est = function(Y=NULL,X,d=NULL,lambda,penalty.factor=NULL,alpha=
     # {$A,matrix} col-concatenated version of Alist, of size p by (p*d)
     # {$Alist,list} each element corresponding to the coef estimate of the lag
     
-	n = nrow(X); p = ncol(X);
+	n = nrow(X); 
     
     is_Y_provided = !is.null(Y);
     if (!is_Y_provided)
@@ -60,12 +60,8 @@ regularized_VAR_est = function(Y=NULL,X,d=NULL,lambda,penalty.factor=NULL,alpha=
     }
 	else
 	{
-		if (!is.null(d))
-            warning("Both X and Y are provided; d will not be used for extracting regressors/responses, but will be used for column-partitioning the final estimate.\n")
-        else
-        {
+		if (is.null(d))
             d = 1;
-        }
 	}
 
 	dimX = ncol(X); dimY = ncol(Y);
@@ -183,12 +179,8 @@ regularized_VAR_bic = function(Y=NULL,X,d=NULL,lambda_seq=NULL,penalty.factor=NU
     }
     else
     {
-        if (!is.null(d))
-            warning("Both X and Y are provided; d will not be used for extracting regressors/responses, but will be used for column-partitioning the final estimate.\n")
-        else
-        {
+        if (is.null(d))
             d = 1
-        }
     }
     
     dimX = ncol(X); 
@@ -261,12 +253,8 @@ regularized_VAR_validate = function(Y=NULL,X,d=NULL,lambda_seq=NULL,penalty.fact
     }
     else
     {
-        if (!is.null(d))
-            warning("Both X and Y are provided; d will not be used for extracting regressors/responses, but will be used for column-partitioning the final estimate.\n")
-        else
-        {
+        if (is.null(d))
             d = 1
-        }
     }
     
     dimX = ncol(X); effective_n = nrow(X);
@@ -317,7 +305,7 @@ regularized_VAR_validate = function(Y=NULL,X,d=NULL,lambda_seq=NULL,penalty.fact
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # Auto regularized estimation of a VAR -- use with caution
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-regularized_VAR_auto = function(Y=NULL,X,d=NULL,alpha=1,lambda_seq=NULL,selection="bic",parallel=FALSE,refit=FALSE)
+regularized_VAR_auto = function(Y=NULL,X,d=NULL,alpha=1,lambda_seq=NULL,penalty.factor=NULL,selection="bic",parallel=FALSE,refit=FALSE)
 {
     # {param,matrix} Y: response vectors stacked in rows
     #    if NULL, then response will be extracted from X
@@ -330,11 +318,11 @@ regularized_VAR_auto = function(Y=NULL,X,d=NULL,alpha=1,lambda_seq=NULL,selectio
     
     if (selection == "bic")
     {
-        out = regularized_VAR_bic(Y=Y,X=X,d=d,lambda_seq=lambda_seq,alpha=alpha,refit=refit,parallel=parallel);
+        out = regularized_VAR_bic(Y=Y,X=X,d=d,lambda_seq=lambda_seq,penalty.factor=penalty.factor,alpha=alpha,refit=refit,parallel=parallel);
     }
     else if (selection == "validation")
     {
-        out = regularized_VAR_validate(Y=Y,X=X,d=d,lambda_seq=lambda_seq,alpha=alpha,train_size=0.8,validate_size=0.1,refit=refit,parallel=parallel);
+        out = regularized_VAR_validate(Y=Y,X=X,d=d,lambda_seq=lambda_seq,penalty.factor=penalty.factor,alpha=alpha,train_size=0.8,validate_size=0.1,refit=refit,parallel=parallel);
     }
     return(out)
 }
