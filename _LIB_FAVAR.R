@@ -1,10 +1,18 @@
 ## ***************************************************
-## Description: FAVAR estimation
+## Description: library for high-dim FAVAR estimation
 ##
 ## - Calibration equation estimation
-## - FAVAR estimation
+##  > info_est(): estiamte the information equation with given rank constraint and penalty parameter;
+##  > info_auto(): estimate the information equation and choose the optimal over a lattice of 
+##                  rank constraints and penalty parameters, where the optimal is chosen based on panel information criterion
 ##
-## Author: Jiahe Lin
+## - FAVAR estimation
+##  > favar_est(): rank constraint and tuning parameters need to be provided; first estimate the info equation, then using the
+##                  using the recovered factor, proceed with VAR(d) (regularized) estimation
+##  > favar_auto(): first estimate the information equation (the optimal choice of tuning parameters is based on PIC), 
+##                      then estimate the VAR equation (the optimal choice of the tuning parameter is based on BIC).
+##
+## Author: Jiahe Lin. jiahelin@umich.edu
 ## ***************************************************
 
 source("_LIB_Regularized_VARd_LS.R");
