@@ -1,26 +1,37 @@
-Eval_Sparse = function(true,est){
+#######################################################################
+## Description: Evaluate the performance of the sparse and 
+##      the low rank component coming out of the estimation
+##
+## This is used when synthetic data is generated and the truth is known
+#######################################################################
+
+Eval_Sparse = function(true,est)
+{
     
     true = as.matrix(true);
     est = as.matrix(est);
     
-    ## evaluate SEN, SPC and Error in Fnorm for a matrix
-    est.v=as.vector(!!est);
-    true.v=as.vector(!!true);
+    est.v = as.vector(!!est);
+    true.v = as.vector(!!true);
     
     TP = sum(est.v & true.v);
     TN = sum((!est.v) & (!true.v));
     FP = sum(est.v & !true.v);
     FN = sum(!est.v & true.v);
 
+    ## evaluate SEN, SPC and Error in Fnorm for a matrix
     SEN = TP/(TP+FN); # aka true positive rates
     SPC = TN/(TN+FP); # aka true negative rate;
     Error = norm(true-est,"F")/norm(true,'F')
     
-    result = c(SEN,SPC,Error); names(result) = c("SEN","SPC","ERR");    
+    result = c(SEN,SPC,Error); 
+    names(result) = c("SEN","SPC","ERR");    
+    
     return(result)   
 }
 
-Eval_Flats = function(truth,est){
+Eval_Flats = function(truth,est)
+{
     
     truth = as.matrix(truth);
     est = as.matrix(est);
@@ -32,11 +43,12 @@ Eval_Flats = function(truth,est){
     
     QR1 = qr(truth);
     QR2 = qr(est);
-    SVD = svd(t(qr.Q(QR2))%*%qr.Q(QR1));
+    SVD = svd(t(qr.Q(QR2)) %*% qr.Q(QR1));
     
     options(warn=-1)
-    acos_val = acos(SVD$d);
+    acos_val = acos(SVD$d); ## NaN value will be produced in the case where the singular value exceeds 1 due to numerical reasons
     options(warn=0)
+    
     for (i in 1:length(acos_val))
     {
         if (is.nan(acos_val[i]))
