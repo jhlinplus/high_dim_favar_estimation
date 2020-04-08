@@ -4,4 +4,4 @@ The code in this repository provides an implementation corresponding to the regu
 
 Reference: https://arxiv.org/abs/1912.04146
 
-Sample run: Example_FAVAR_Estimation.R
+Sample run: Example_FAVAR_estimation.R
