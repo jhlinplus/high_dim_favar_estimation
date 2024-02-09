@@ -22,7 +22,7 @@ registerDoParallel(cores=detectCores(all.tests = FALSE, logical = TRUE)-1);
 cat(sprintf("Total number of workers = %d.\n",getDoParWorkers()));
 
 ## load BIC calculation
-source("_LIB_IC_Calc.R");
+source("src/_calc_information_criteria.R");
 
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 
 # Regularized estimate of a VAR with the given penalty parameter lambda

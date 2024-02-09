@@ -15,8 +15,8 @@
 ## Author: Jiahe Lin. jiahelin@umich.edu
 ## ***************************************************
 
-source("_LIB_Regularized_VARd_LS.R");
-source("_LIB_IC_Calc.R");
+source("src/_estimate_regularized_VARd.R");
+source("src/_calc_information_criteria.R");
 
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # factor and factor loading estimation based on given Theta
@@ -69,8 +69,8 @@ factor_extract = function(Theta,rk,IR)
     {
         if ( rk > 1 )
         {
-            est_f0 = sqrt(n) * Theta_SVD$u[,rk];
-            est_Lambda0 = matrix(Theta_SVD$v[,1:rk]) * Theta_SVD$d[1:rk]/sqrt(n);
+            est_f0 = sqrt(n) * Theta_SVD$u[,1:rk];
+            est_Lambda0 = matrix(Theta_SVD$v[,1:rk]) %*% Theta_SVD$d[1:rk]/sqrt(n);
             Q = qr.Q(qr(est_Lambda0[1:rk,1:rk]));
             est_f = est_f0 %*% Q;
             est_Lambda = est_Lambda0 %*% Q;
@@ -141,6 +141,11 @@ info_est = function(Y,X,rk,lambda,IR='PC3',parallel=FALSE,verbose=FALSE)
     fval0 = obj_val(Y,X,B,Theta,lambda);
     fval = c();
     
+    if (verbose)
+    {
+        cat(sprintf(">> f_initial = %.4f.\n", fval0));
+    }
+    
     CONVERGE = FALSE;
     while( !CONVERGE )
     {
@@ -164,7 +169,7 @@ info_est = function(Y,X,rk,lambda,IR='PC3',parallel=FALSE,verbose=FALSE)
                 B[j,] = as.numeric(temp$beta);
             }
         }
-            
+        
         # calcualte the objective function update
         fB =  obj_val(Y,X,B,Theta,lambda);
         fB_update = ifelse(iter==1,fB-fval0,fB-fval[iter-1]);
@@ -187,6 +192,11 @@ info_est = function(Y,X,rk,lambda,IR='PC3',parallel=FALSE,verbose=FALSE)
         
         if (iter > 5000)
             stop("Iteration overflow @info_est().\n")
+    }
+    
+    if (verbose)
+    {
+        cat(sprintf(">> Converged @ iter = %d, f_terminal = %.4f.\n", iter, fval[length(fval)]));
     }
     
     est_fLambda = factor_extract(Theta,rk=rk,IR=IR);
@@ -257,7 +267,8 @@ info_auto = function(Y,X,rk_seq,lambda_seq,IR='PC3',parallel=FALSE,verbose=FALSE
     
     if (verbose)
     {
-        cat("Done with selection, proceed with the final information eqn estimation.\n");
+        cat(sprintf("Done with selection. rk_best=%d; lambda_best=%.4f\n", rk_active, lambda_active))
+        cat("Proceed with the final information eqn estimation ...\n");
     }
     
     out = info_est(Y,X,rk=rk_active,lambda=lambda_active,IR=IR,parallel=parallel,verbose=verbose);
@@ -268,7 +279,7 @@ info_auto = function(Y,X,rk_seq,lambda_seq,IR='PC3',parallel=FALSE,verbose=FALSE
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # Estimate the FAVAR model based on given rank/penalty parameters
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-favar_est = function(Y,X,rk,lambda_Gamma,IR='PC3',lambda_A,penalty_fac,d=1,alpha=1,parallel=TRUE,verbose=FALSE)
+favar_est = function(Y,X,rk,lambda_Gamma,IR='PC3',lambda_A,penalty_fac=NULL,d=1,alpha=1,parallel=TRUE,verbose=FALSE)
 {
     ## params for the information eqn
     #{param,matrix} Y: observed reseponse matrix data
@@ -345,18 +356,18 @@ favar_auto = function(Y,X,rk_seq,lambda_Gamma_seq,IR='PC3',lambda_A_seq,penalty_
     Y = as.matrix(Y);
     X = as.matrix(X);
     
-    cat("==== Stage I: estimating calibration eqn with auto-selected rank and penalty params ====\n");
+    cat(sprintf("[%s] Stage I: estimating calibration eqn with auto-selected rank and penalty params\n", format(Sys.time(), "%Y-%m-%d %H:%M:%S")));
     
     out_autoinfo = info_auto(Y=Y,X=X,rk_seq=rk_seq,lambda_seq=lambda_Gamma_seq,IR=IR,parallel=parallel,verbose=verbose);
     out_info = out_autoinfo$out;
     
-    cat("==== Stage II: estimating VAR eqn with auto-selected penalty params ====\n");
+    cat(sprintf("[%s] Stage II: estimating VAR eqn with auto-selected penalty params\n",format(Sys.time(), "%Y-%m-%d %H:%M:%S")));
     # joint process (F_t,X_t)
     FX = cbind(out_info$est_f,X);
     # auto estimate the joint VAR process
     out_autoVAR = regularized_VAR_auto(Y=NULL,X=FX,d=d,alpha=1,lambda_seq=lambda_A_seq,penalty.factor=penalty_fac,selection="bic",refit=FALSE,parallel=parallel);
     
-    cat("=== Done ===\n");
+    cat(sprintf("[%s] Done with estimation \n", format(Sys.time(), "%Y-%m-%d %H:%M:%S")));
     return(list(est_Gamma = out_info$est_B,
                 est_Lambda = out_info$est_Lambda,
                 est_f = out_info$est_f,
