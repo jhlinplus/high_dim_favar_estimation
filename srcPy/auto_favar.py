@@ -8,24 +8,13 @@ from .ic import InformationCriteria as IC
 
 class AutoFAVAR(FAVAR):
     """
-    - observation eqn obj:
-    \| Y - XB' - Theta\|_F^2 + lambda_B \|B\|_1
-    - VAR eqn obj, where Z is [F,X] stacked
-    \| Z - ZA'\|_F^2 + lambda_A\|A\|_1
-    (@param) IR: information criterion for extracting the factors, default to IC3
-    - see Bai & Ng (2013, JoE) "Principal components estimation and identification of static factors" for the exact specification of IC1, IC2 and IC3
-    
-    
-    # (@param) rk: rank of Theta in the information equation
-    # (@param) d: number of lags of the VAR equation
-    # (@param) lambda_B: penalty coefficient for B in the information equation
-    # (@param) lambda_A: penalty coefficient for A in the information equation
+    inherited from FAVAR, but allow for supplying a sequence of tuning parameter to perform automatic selection based on the information criteria
     """
     def __init__(
         self,
-        IR = 'IC3',
+        IR = 'PC3',
         max_iter = 500,
-        tol = 1.0e-4,
+        tol = 1.0e-5,
     ):
         super(AutoFAVAR, self).__init__(IR, max_iter, tol)
     
@@ -64,14 +53,14 @@ class AutoFAVAR(FAVAR):
         for i in range(len(lambdaA_seq)):
             if verbose:
                 print(f'** i={i}/{len(lambdaA_seq)}')
-            A = self.fitRegularizedVAR(zdata, d, lambdaA_seq[i], fit_intercept=fit_intercept, stack=False, verbose=0)
+            A = self.fitVARd(zdata, d, lambdaA_seq[i], fit_intercept=fit_intercept, stack=False, verbose=0)
             bic_seq[i] = IC.bic(Z, Zlag, A, penalty_type='lasso', lambda_coef=lambdaA_seq[i])
         
         i_opt = np.unravel_index(bic_seq.argmin(), bic_seq.shape)
         lambdaA = lambdaA_seq[i_opt]
-        print(f'[{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Done; lambdaA_best={lambdaA:.4f}; refitting ...')
+        print(f'[{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Done; lambdaA_best={lambdaA:.4f} (index={i_opt}); refitting ...')
         
-        A = self.fitRegularizedVAR(zdata, d, lambdaA, fit_intercept=fit_intercept, stack=True, verbose=1)
+        A = self.fitVARd(zdata, d, lambdaA, fit_intercept=fit_intercept, stack=True, verbose=1)
         return A, bic_seq
     
     def autofit(self, ydata, xdata, d, rk_seq, lambdaB_seq, lambdaA_seq, verbose=True):

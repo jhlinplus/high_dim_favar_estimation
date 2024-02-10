@@ -14,11 +14,11 @@
 ## working dir should be under R/
 
 rm(list=ls())
-source("src/_estimate_FAVAR.R");
+source("srcR/_estimate_FAVAR.R");
 
 ## Read in data
-Y = read.csv("../example_data/Y.csv")[,-1]; ## first column records the time index, hence removed
-X = read.csv("../example_data/X.csv")[,-1]; ## first column records the time index, hence removed
+Y = read.csv("example_data/Y.csv")[,-1]; ## first column records the time index, hence removed
+X = read.csv("example_data/X.csv")[,-1]; ## first column records the time index, hence removed
 
 ################################
 ## estimate using auto FAVAR 

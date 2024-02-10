@@ -13,15 +13,17 @@ class CustomLasso():
         alpha,
         fit_intercept,
         standardize = True,
+        tol = 1.0e-5,
     ):
         self.standardize = standardize
         self.alpha = alpha
         self.fit_intercept = fit_intercept
+        self.tol = tol
 
     def fit(self, X, y):
         
         if not self.standardize:
-            self.Lasso = Lasso(alpha=self.alpha,fit_intercept=self.fit_intercept)
+            self.Lasso = Lasso(alpha=self.alpha,fit_intercept=self.fit_intercept,tol=self.tol)
             self.Lasso.fit(X,y)
             self.coef_ = self.Lasso.coef_
         else:
@@ -32,7 +34,7 @@ class CustomLasso():
             #scY = StandardScaler().fit(y.reshape(-1,1))
             #ystd = scY.transform(y.reshape(-1,1)).ravel()
             
-            self.Lasso = Lasso(alpha=self.alpha,fit_intercept=False)
+            self.Lasso = Lasso(alpha=self.alpha,fit_intercept=False,tol=self.tol)
             self.Lasso.fit(Xstd,y)
             
             if not self.fit_intercept:
