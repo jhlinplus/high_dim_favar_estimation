@@ -22,7 +22,7 @@ registerDoParallel(cores=detectCores(all.tests = FALSE, logical = TRUE)-1);
 cat(sprintf("Total number of workers = %d.\n",getDoParWorkers()));
 
 ## load BIC calculation
-source("_LIB_IC_Calc.R");
+source("srcR/_calc_information_criteria.R");
 
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 
 # Regularized estimate of a VAR with the given penalty parameter lambda
@@ -211,7 +211,7 @@ regularized_VAR_bic = function(Y=NULL,X,d=NULL,lambda_seq=NULL,penalty.factor=NU
     out = regularized_VAR_est(Y=Y,X=X,d=d,lambda=lambda_active,penalty.factor=penalty.factor,alpha=alpha,refit=refit,parallel=parallel);
     
     ## return the idx of the BIC selected and the output from the final sparse VAR estimation
-    return(list(idx=id,out=out));
+    return(list(idx=id,out=out,bic=bic_vec));
 }
 
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@

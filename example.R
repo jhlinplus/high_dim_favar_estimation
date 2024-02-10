@@ -11,11 +11,10 @@
 ## 
 ## ***************************************************************************
 
-setwd("~/GitHub/High_dim_FAVAR_estimation")
+## working dir should be under R/
 
 rm(list=ls())
-source("_LIB_FAVAR.R");
-source("_LIB_Eval.R");
+source("srcR/_estimate_FAVAR.R");
 
 ## Read in data
 Y = read.csv("example_data/Y.csv")[,-1]; ## first column records the time index, hence removed
@@ -37,12 +36,13 @@ IR = "PC3";
 d = 2;
 alpha = 1;
 
+################################
+## run auto FAVAR
+################################
+
 ## run FAVAR, tuning parameters are automatically selected based on a lattice of tuning parameters
 out_autoFAVAR = favar_auto(Y,X,rk_seq,lambda_Gamma_seq,IR=IR,lambda_A_seq,d=d,alpha=alpha,parallel=TRUE,verbose=TRUE)
 
-################################
-## extracting estimated components
-################################
 ## estimated Gamma -- regression coefficient in the calibration (information) equation
 out_autoFAVAR$est_Gamma
 
@@ -54,3 +54,11 @@ out_autoFAVAR$est_A[[1]]
 
 ## estimated transition matrix for lag = 2 for the VAR process
 out_autoFAVAR$est_A[[2]]
+
+################################
+## run FAVAR with fixed tuning parameters
+################################
+out_FAVAR = favar_est(Y,X, rk=5,lambda_Gamma=0.0536,IR='PC3',lambda_A=0.0217,d=2,alpha=1,parallel=TRUE,verbose=TRUE)
+
+## estimated Gamma
+out_FAVAR$est_Gamma
